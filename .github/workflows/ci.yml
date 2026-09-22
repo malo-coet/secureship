@@ -25,18 +25,39 @@ jobs:
   build-scan:
     name: Build & scan
     runs-on: ubuntu-latest
-    needs: test              # ne s'exécute que si les tests passent
+    needs: test
+    permissions:                 # ← au niveau du JOB, pas du step
+      contents: read
+      security-events: write     # ← le droit d'écrire dans l'onglet Security
     steps:
       - uses: actions/checkout@v4
 
       - name: Construire l'image Docker
         run: docker build -t secureship:${{ github.sha }} .
 
-      - name: Scanner l'image avec Trivy
+      # 1) Scan qui BLOQUE le build
+      - name: Scan Trivy (gate)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: secureship:${{ github.sha }}
           format: table
-          severity: CRITICAL,HIGH   # on ne s'occupe que du sérieux
-          ignore-unfixed: true      # on ignore les failles non corrigeables (bruit)
-          exit-code: "1"            # échoue le build si une faille corrigeable est trouvée
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      # 2) Scan qui RAPPORTE (produit le SARIF, ne bloque pas)
+      - name: Scan Trivy (SARIF)
+        uses: aquasecurity/trivy-action@master
+        if: always()             # ← s'exécute même si le gate a échoué
+        with:
+          image-ref: secureship:${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+
+      # 3) UPLOAD du SARIF vers l'onglet Security
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
