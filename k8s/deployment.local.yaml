@@ -1,0 +1,37 @@
+# Version LOCALE (kind) : l'image vit dans le cluster via `kind load`, donc on
+# la référence par son nom court et on interdit à K8s d'aller la chercher sur un
+# registry distant (imagePullPolicy: Never).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secureship
+  labels: { app: secureship }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: secureship }
+  template:
+    metadata:
+      labels: { app: secureship }
+    spec:
+      containers:
+        - name: secureship
+          image: secureship:v1
+          imagePullPolicy: Never          # image chargée localement, ne pas puller
+          ports:
+            - containerPort: 8000
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits:   { cpu: "250m", memory: "128Mi" }
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false

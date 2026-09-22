@@ -1,0 +1,13 @@
+.git
+.gitignore
+infra/
+k8s/
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+README.md
+*.md
+.terraform/
+*.tfstate
+*.tfstate.*

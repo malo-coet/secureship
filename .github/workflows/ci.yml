@@ -1,0 +1,42 @@
+name: CI
+
+# Quand se déclenche le pipeline
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  # ---- Job 1 : tests automatiques ----
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Installer les dépendances
+        run: pip install -r app/requirements.txt pytest httpx
+      - name: Lancer les tests
+        run: pytest -q
+
+  # ---- Job 2 : build de l'image + scan de vulnérabilités ----
+  build-scan:
+    name: Build & scan
+    runs-on: ubuntu-latest
+    needs: test              # ne s'exécute que si les tests passent
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construire l'image Docker
+        run: docker build -t secureship:${{ github.sha }} .
+
+      - name: Scanner l'image avec Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: secureship:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH   # on ne s'occupe que du sérieux
+          ignore-unfixed: true      # on ignore les failles non corrigeables (bruit)
+          exit-code: "1"            # échoue le build si une faille corrigeable est trouvée

@@ -1,0 +1,54 @@
+# A Deployment tells Kubernetes: "keep N identical copies (Pods) of this
+# container running, and replace any that die." This is the core of what makes
+# Kubernetes self-healing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secureship
+  labels:
+    app: secureship
+spec:
+  replicas: 2 # two copies → if one node/pod dies, the app stays up
+  selector:
+    matchLabels:
+      app: secureship
+  template:
+    metadata:
+      labels:
+        app: secureship
+    spec:
+      containers:
+        - name: secureship
+          # ⬇️ REPLACE <ACR_LOGIN_SERVER> with your real ACR host from terraform output
+          #    e.g. secureshipacrab12cd.azurecr.io/secureship:v1
+          image: <ACR_LOGIN_SERVER>/secureship:v1
+          ports:
+            - containerPort: 8000
+          # Resource requests/limits: requests = what the pod is guaranteed,
+          # limits = the ceiling it can't exceed. Prevents one pod starving others.
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "128Mi"
+          # Kubernetes hits /health to decide if the pod is alive (liveness) and
+          # ready for traffic (readiness). This is how self-healing works.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          # Security hardening: reinforce that the container doesn't run as root
+          # and can't escalate privileges.
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false

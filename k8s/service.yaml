@@ -1,0 +1,19 @@
+# A Service gives our Pods a stable network identity. Pods come and go (new IPs
+# each time); the Service is a fixed front door that load-balances across them.
+#
+# type: LoadBalancer asks Azure to provision a real public IP + load balancer,
+# so your API is reachable from the internet. (Later, in the security sprint,
+# you'll swap this for an internal service behind an Ingress — but LoadBalancer
+# is the fastest way to a working demo.)
+apiVersion: v1
+kind: Service
+metadata:
+  name: secureship
+spec:
+  type: LoadBalancer
+  selector:
+    app: secureship # routes traffic to Pods with this label
+  ports:
+    - port: 80 # public port
+      targetPort: 8000 # container port
+      protocol: TCP
